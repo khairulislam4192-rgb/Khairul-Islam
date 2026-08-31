@@ -1,0 +1,6 @@
+{
+  "name": "OmniStock E-Commerce & Inventory Management",
+  "description": "Enterprise-grade E-Commerce & Inventory Management System with RBAC, realtime stock analytics, customer 360 CRM, barcode generator/scanner, and thermal receipt printing.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

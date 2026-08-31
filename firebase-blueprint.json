@@ -1,0 +1,111 @@
+{
+  "projectId": "fast-forcaster-52sm5",
+  "entities": {
+    "users": {
+      "title": "User",
+      "description": "User profile with role, email, and metadata",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "sub_account"] },
+        "parentAdminId": { "type": "string" },
+        "parentAdminName": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "avatar": { "type": "string" },
+        "isActive": { "type": "boolean" }
+      },
+      "required": ["id", "name", "role", "createdAt", "isActive"]
+    },
+    "userFiles": {
+      "title": "UserFile",
+      "description": "User uploaded files, invoices, attachments, and metadata",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "fileName": { "type": "string" },
+        "fileSize": { "type": "number" },
+        "fileType": { "type": "string" },
+        "category": { "type": "string" },
+        "downloadUrl": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "notes": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["id", "userId", "name", "fileName", "fileSize", "fileType", "downloadUrl", "createdAt"]
+    },
+    "products": {
+      "title": "Product",
+      "description": "Product inventory records",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "barcode": { "type": "string" },
+        "buyingPrice": { "type": "number" },
+        "sellingPrice": { "type": "number" },
+        "size": { "type": "string" },
+        "quantity": { "type": "number" },
+        "minStockThreshold": { "type": "number" },
+        "image": { "type": "string" },
+        "details": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "name", "barcode", "sellingPrice", "quantity", "createdAt"]
+    },
+    "customers": {
+      "title": "Customer",
+      "description": "Customer CRM profiles",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "address": { "type": "string" },
+        "loyaltyPoints": { "type": "number" },
+        "lifetimeSpend": { "type": "number" },
+        "totalOrdersCount": { "type": "number" },
+        "createdAt": { "type": "string" },
+        "notes": { "type": "string" }
+      },
+      "required": ["id", "name", "phone", "createdAt"]
+    },
+    "orders": {
+      "title": "Order",
+      "description": "POS sales orders & invoices",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "invoiceNumber": { "type": "string" },
+        "customerId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "customerPhone": { "type": "string" },
+        "items": { "type": "array" },
+        "subtotal": { "type": "number" },
+        "discount": { "type": "number" },
+        "tax": { "type": "number" },
+        "grandTotal": { "type": "number" },
+        "paidAmount": { "type": "number" },
+        "dueAmount": { "type": "number" },
+        "status": { "type": "string" },
+        "paymentMethod": { "type": "string" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "createdBy": { "type": "string" },
+        "createdByName": { "type": "string" }
+      },
+      "required": ["id", "invoiceNumber", "customerName", "items", "grandTotal", "createdAt"]
+    }
+  }
+}
