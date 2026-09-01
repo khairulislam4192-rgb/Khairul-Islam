@@ -87,10 +87,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         return JSON.parse(saved);
       } catch {
-        return DEFAULT_ADMIN;
+        return null;
       }
     }
-    return DEFAULT_ADMIN;
+    return null;
   });
 
   const [subAccounts, setSubAccounts] = useState<User[]>(() => {
@@ -99,10 +99,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         return JSON.parse(saved);
       } catch {
-        return INITIAL_SUB_ACCOUNTS;
+        return [];
       }
     }
-    return INITIAL_SUB_ACCOUNTS;
+    return [];
   });
 
   useEffect(() => {
@@ -150,21 +150,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsubscribe();
   }, []);
 
-  const login = async (identifier: string, password = 'password123'): Promise<boolean> => {
+  const login = async (identifier: string, password = ''): Promise<boolean> => {
     const cleanId = identifier.trim().toLowerCase();
-    
-    // Quick Demo / Local Admin Match
-    if (
-      cleanId === 'admin' ||
-      cleanId === DEFAULT_ADMIN.email?.toLowerCase() ||
-      cleanId === DEFAULT_ADMIN.phone ||
-      cleanId.includes('khairul')
-    ) {
-      setCurrentUser(DEFAULT_ADMIN);
-      return true;
-    }
 
-    // Check existing sub accounts
+    // Check existing sub accounts in local cache
     const foundSub = subAccounts.find(
       (s) =>
         s.email?.toLowerCase() === cleanId ||
@@ -185,43 +174,55 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const emailToUse = isEmail ? cleanId : `${cleanId.replace(/[^a-zA-Z0-9]/g, '')}@omnistock.local`;
 
     try {
-      // Try Firebase Sign In
+      // Firebase Sign In
       const userCred = await signInWithEmailAndPassword(auth, emailToUse, password);
       const userDocRef = doc(db, 'users', userCred.user.uid);
       const snap = await getDoc(userDocRef);
       if (snap.exists()) {
         const u = snap.data() as User;
-        if (!u.isActive) throw new Error('Account has been deactivated.');
+        if (!u.isActive) throw new Error('Account has been deactivated by administrator.');
         setCurrentUser(u);
+        return true;
+      } else {
+        const userProfile: User = {
+          id: userCred.user.uid,
+          name: userCred.user.displayName || userCred.user.email?.split('@')[0] || 'User',
+          email: userCred.user.email || undefined,
+          role: 'admin',
+          createdAt: new Date().toISOString(),
+          isActive: true,
+        };
+        await setDoc(userDocRef, userProfile);
+        setCurrentUser(userProfile);
         return true;
       }
     } catch (fbErr: any) {
-      console.log('Firebase auth direct check, fallback to local creation if needed:', fbErr?.message);
-    }
+      console.warn('Firebase login attempt:', fbErr?.code || fbErr?.message);
+      
+      if (
+        fbErr?.code === 'auth/user-not-found' ||
+        fbErr?.code === 'auth/wrong-password' ||
+        fbErr?.code === 'auth/invalid-credential' ||
+        fbErr?.code === 'auth/invalid-email'
+      ) {
+        throw new Error('Invalid email or password. Please check your credentials or click "Create Account".');
+      }
 
-    // Local profile fallback
-    const newUser: User = {
-      id: cleanId.startsWith('sub') ? `SUB-${Math.floor(1000 + Math.random() * 9000)}` : `ADM-${Math.floor(1000 + Math.random() * 9000)}`,
-      name: isEmail ? cleanId.split('@')[0] : 'User ' + cleanId.slice(-4),
-      email: isEmail ? cleanId : undefined,
-      phone: !isEmail ? cleanId : undefined,
-      role: cleanId.includes('sub') ? 'sub_account' : 'admin',
-      parentAdminId: cleanId.includes('sub') ? DEFAULT_ADMIN.id : undefined,
-      parentAdminName: cleanId.includes('sub') ? DEFAULT_ADMIN.name : undefined,
-      createdAt: new Date().toISOString(),
-      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-      isActive: true,
-    };
-    setCurrentUser(newUser);
-    return true;
+      throw new Error(fbErr?.message || 'Authentication failed. Please verify your credentials.');
+    }
   };
 
   const loginAsDemo = (role: UserRole) => {
-    if (role === 'admin') {
-      setCurrentUser(DEFAULT_ADMIN);
-    } else {
-      setCurrentUser(subAccounts[0] || INITIAL_SUB_ACCOUNTS[0]);
-    }
+    // Demo fallback for preview if needed
+    const demoUser: User = {
+      id: role === 'admin' ? 'DEMO-ADM-01' : 'DEMO-SUB-01',
+      name: role === 'admin' ? 'Demo Admin' : 'Demo Staff',
+      email: role === 'admin' ? 'admin@store.com' : 'staff@store.com',
+      role,
+      createdAt: new Date().toISOString(),
+      isActive: true,
+    };
+    setCurrentUser(demoUser);
   };
 
   const loginWithGoogle = async (): Promise<boolean> => {
@@ -241,10 +242,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         const newGoogleUser: User = {
           id: user.uid,
-          name: user.displayName || 'Store Admin',
+          name: user.displayName || user.email?.split('@')[0] || 'Store Admin',
           email: user.email || undefined,
           role: 'admin',
-          avatar: user.photoURL || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+          avatar: user.photoURL || undefined,
           createdAt: new Date().toISOString(),
           isActive: true,
         };
@@ -257,24 +258,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       return true;
     } catch (popupErr: any) {
-      console.warn('Google sign-in popup notice (switching to instant free-tier verified Google session):', popupErr?.message);
-      // Fallback: If in an iframe where popup is blocked or free tier domain unlinked, log in directly as the verified Google account
-      const googleAdmin: User = {
-        id: 'GOOGLE-ADM-8821',
-        name: 'Khairul Islam (Google Verified)',
-        email: 'khairulislam2980@gmail.com',
-        role: 'admin',
-        createdAt: new Date().toISOString(),
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-        isActive: true,
-      };
-      try {
-        await setDoc(doc(db, 'users', googleAdmin.id), googleAdmin);
-      } catch (err) {
-        // Ignored
+      console.warn('Google sign-in popup notice:', popupErr?.code || popupErr?.message);
+      if (popupErr?.code === 'auth/popup-closed-by-user') {
+        throw new Error('Google sign-in popup was closed.');
+      } else if (popupErr?.code === 'auth/popup-blocked') {
+        throw new Error('Google sign-in popup was blocked by browser. Please allow popups for this site or create an account with email.');
+      } else if (popupErr?.code === 'auth/unauthorized-domain') {
+        throw new Error('Please add this app domain to Firebase Console > Authentication > Settings > Authorized Domains, or sign in with email/password.');
       }
-      setCurrentUser(googleAdmin);
-      return true;
+      throw new Error(popupErr?.message || 'Google sign-in failed. Please try again or use email sign in.');
     }
   };
 
@@ -288,14 +280,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const isEmail = identifier.includes('@');
     const emailToUse = isEmail ? identifier.trim() : `${identifier.replace(/[^a-zA-Z0-9]/g, '')}@omnistock.local`;
 
-    let uid = role === 'admin' ? `ADM-${Math.floor(1000 + Math.random() * 9000)}` : `SUB-${Math.floor(1000 + Math.random() * 9000)}`;
+    let uid = role === 'admin' ? `ADM-${Date.now().toString().slice(-6)}` : `SUB-${Date.now().toString().slice(-6)}`;
 
     try {
       const userCred = await createUserWithEmailAndPassword(auth, emailToUse, password);
       uid = userCred.user.uid;
       await updateProfile(userCred.user, { displayName: name });
     } catch (fbErr: any) {
-      console.warn('Firebase user creation notice:', fbErr?.message);
+      console.warn('Firebase user creation notice:', fbErr?.code || fbErr?.message);
+      if (fbErr?.code === 'auth/email-already-in-use') {
+        throw new Error('This email is already registered. Please sign in instead.');
+      } else if (fbErr?.code === 'auth/weak-password') {
+        throw new Error('Password should be at least 6 characters.');
+      }
     }
 
     const newUser: User = {
@@ -304,10 +301,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       email: isEmail ? identifier : undefined,
       phone: !isEmail ? identifier : undefined,
       role,
-      parentAdminId: role === 'sub_account' ? (parentAdminId || DEFAULT_ADMIN.id) : undefined,
-      parentAdminName: role === 'sub_account' ? DEFAULT_ADMIN.name : undefined,
+      parentAdminId: role === 'sub_account' ? (parentAdminId || undefined) : undefined,
       createdAt: new Date().toISOString(),
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
       isActive: true,
     };
 
@@ -342,10 +337,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       email: data.email,
       phone: data.phone,
       role: 'sub_account',
-      parentAdminId: currentUser?.id || DEFAULT_ADMIN.id,
-      parentAdminName: currentUser?.name || DEFAULT_ADMIN.name,
+      parentAdminId: currentUser?.id,
+      parentAdminName: currentUser?.name,
       createdAt: new Date().toISOString(),
-      avatar: `https://images.unsplash.com/photo-${1500000000000 + Math.floor(Math.random() * 999999)}?w=150&auto=format&fit=crop&q=80`,
       isActive: true,
     };
 
@@ -391,6 +385,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         currentUser,
         subAccounts,
         login,
+        loginWithGoogle,
         loginAsDemo,
         signup,
         logout,

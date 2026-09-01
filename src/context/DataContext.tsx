@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { Product, Customer, Order, ReturnRecord, StoreSettings, TimeFilter, OrderStatus } from '../types';
+import { useAuth } from './AuthContext';
 import confetti from 'canvas-confetti';
 import { db } from '../lib/firebase';
 import {
@@ -9,6 +10,8 @@ import {
   deleteDoc,
   onSnapshot,
   getDoc,
+  query,
+  where,
 } from 'firebase/firestore';
 
 interface DataContextType {
@@ -30,6 +33,7 @@ interface DataContextType {
   // Customer actions
   addCustomer: (customerData: Omit<Customer, 'id' | 'loyaltyPoints' | 'lifetimeSpend' | 'totalOrdersCount' | 'createdAt'>) => Promise<Customer>;
   updateCustomer: (id: string, data: Partial<Customer>) => Promise<Customer>;
+  deleteCustomer: (id: string) => Promise<boolean>;
   getCustomerById: (id: string) => Customer | undefined;
   // Order actions
   createOrder: (orderData: Omit<Order, 'id' | 'invoiceNumber' | 'createdAt'>) => Promise<Order>;
@@ -436,92 +440,117 @@ const INITIAL_SETTINGS: StoreSettings = {
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { currentUser } = useAuth();
+  const currentUserId = currentUser ? (currentUser.parentAdminId || currentUser.id) : 'guest';
+
   const [products, setProducts] = useState<Product[]>(() => {
-    const saved = localStorage.getItem('omnistock_products');
-    return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
+    const saved = localStorage.getItem(`omnistock_products_${currentUserId}`);
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [customers, setCustomers] = useState<Customer[]>(() => {
-    const saved = localStorage.getItem('omnistock_customers');
-    return saved ? JSON.parse(saved) : INITIAL_CUSTOMERS;
+    const saved = localStorage.getItem(`omnistock_customers_${currentUserId}`);
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [orders, setOrders] = useState<Order[]>(() => {
-    const saved = localStorage.getItem('omnistock_orders');
-    return saved ? JSON.parse(saved) : INITIAL_ORDERS;
+    const saved = localStorage.getItem(`omnistock_orders_${currentUserId}`);
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [returns, setReturns] = useState<ReturnRecord[]>(() => {
-    const saved = localStorage.getItem('omnistock_returns');
-    return saved ? JSON.parse(saved) : INITIAL_RETURNS;
+    const saved = localStorage.getItem(`omnistock_returns_${currentUserId}`);
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [storeSettings, setStoreSettings] = useState<StoreSettings>(() => {
-    const saved = localStorage.getItem('omnistock_store_settings');
+    const saved = localStorage.getItem(`omnistock_store_settings_${currentUserId}`);
     return saved ? JSON.parse(saved) : INITIAL_SETTINGS;
   });
 
   const [isOffline, setIsOffline] = useState<boolean>(!navigator.onLine);
   const [activeNotification, setActiveNotification] = useState<{ id: string; title: string; message: string; type: 'warning' | 'success' | 'info' } | null>(null);
 
-  // Realtime Firestore synchronization
+  // Reload cache whenever current user changes
   useEffect(() => {
+    const savedP = localStorage.getItem(`omnistock_products_${currentUserId}`);
+    setProducts(savedP ? JSON.parse(savedP) : []);
+
+    const savedC = localStorage.getItem(`omnistock_customers_${currentUserId}`);
+    setCustomers(savedC ? JSON.parse(savedC) : []);
+
+    const savedO = localStorage.getItem(`omnistock_orders_${currentUserId}`);
+    setOrders(savedO ? JSON.parse(savedO) : []);
+
+    const savedR = localStorage.getItem(`omnistock_returns_${currentUserId}`);
+    setReturns(savedR ? JSON.parse(savedR) : []);
+
+    const savedS = localStorage.getItem(`omnistock_store_settings_${currentUserId}`);
+    setStoreSettings(savedS ? JSON.parse(savedS) : INITIAL_SETTINGS);
+  }, [currentUserId]);
+
+  // Realtime Firestore synchronization strictly scoped to current user
+  useEffect(() => {
+    if (!currentUserId || currentUserId === 'guest') return;
+
     try {
+      const qProducts = query(collection(db, 'products'), where('userId', '==', currentUserId));
       const unsubProducts = onSnapshot(
-        collection(db, 'products'),
+        qProducts,
         (snapshot) => {
-          if (!snapshot.empty) {
-            const list: Product[] = [];
-            snapshot.forEach((d) => list.push(d.data() as Product));
-            setProducts(list);
-          }
+          const list: Product[] = [];
+          snapshot.forEach((d) => list.push(d.data() as Product));
+          setProducts(list);
+          localStorage.setItem(`omnistock_products_${currentUserId}`, JSON.stringify(list));
         },
         (err) => console.warn('Firestore products sync notice:', err)
       );
 
+      const qCustomers = query(collection(db, 'customers'), where('userId', '==', currentUserId));
       const unsubCustomers = onSnapshot(
-        collection(db, 'customers'),
+        qCustomers,
         (snapshot) => {
-          if (!snapshot.empty) {
-            const list: Customer[] = [];
-            snapshot.forEach((d) => list.push(d.data() as Customer));
-            setCustomers(list);
-          }
+          const list: Customer[] = [];
+          snapshot.forEach((d) => list.push(d.data() as Customer));
+          setCustomers(list);
+          localStorage.setItem(`omnistock_customers_${currentUserId}`, JSON.stringify(list));
         },
         (err) => console.warn('Firestore customers sync notice:', err)
       );
 
+      const qOrders = query(collection(db, 'orders'), where('userId', '==', currentUserId));
       const unsubOrders = onSnapshot(
-        collection(db, 'orders'),
+        qOrders,
         (snapshot) => {
-          if (!snapshot.empty) {
-            const list: Order[] = [];
-            snapshot.forEach((d) => list.push(d.data() as Order));
-            list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-            setOrders(list);
-          }
+          const list: Order[] = [];
+          snapshot.forEach((d) => list.push(d.data() as Order));
+          list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          setOrders(list);
+          localStorage.setItem(`omnistock_orders_${currentUserId}`, JSON.stringify(list));
         },
         (err) => console.warn('Firestore orders sync notice:', err)
       );
 
+      const qReturns = query(collection(db, 'returns'), where('userId', '==', currentUserId));
       const unsubReturns = onSnapshot(
-        collection(db, 'returns'),
+        qReturns,
         (snapshot) => {
-          if (!snapshot.empty) {
-            const list: ReturnRecord[] = [];
-            snapshot.forEach((d) => list.push(d.data() as ReturnRecord));
-            list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-            setReturns(list);
-          }
+          const list: ReturnRecord[] = [];
+          snapshot.forEach((d) => list.push(d.data() as ReturnRecord));
+          list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          setReturns(list);
+          localStorage.setItem(`omnistock_returns_${currentUserId}`, JSON.stringify(list));
         },
         (err) => console.warn('Firestore returns sync notice:', err)
       );
 
       const unsubSettings = onSnapshot(
-        doc(db, 'storeSettings', 'main'),
+        doc(db, 'storeSettings', currentUserId),
         (snapshot) => {
           if (snapshot.exists()) {
-            setStoreSettings(snapshot.data() as StoreSettings);
+            const data = snapshot.data() as StoreSettings;
+            setStoreSettings(data);
+            localStorage.setItem(`omnistock_store_settings_${currentUserId}`, JSON.stringify(data));
           }
         },
         (err) => console.warn('Firestore settings sync notice:', err)
@@ -537,28 +566,28 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (e) {
       console.warn('Firestore initialization notice:', e);
     }
-  }, []);
+  }, [currentUserId]);
 
-  // Sync with localStorage
+  // Sync with localStorage per user
   useEffect(() => {
-    localStorage.setItem('omnistock_products', JSON.stringify(products));
-  }, [products]);
-
-  useEffect(() => {
-    localStorage.setItem('omnistock_customers', JSON.stringify(customers));
-  }, [customers]);
+    localStorage.setItem(`omnistock_products_${currentUserId}`, JSON.stringify(products));
+  }, [products, currentUserId]);
 
   useEffect(() => {
-    localStorage.setItem('omnistock_orders', JSON.stringify(orders));
-  }, [orders]);
+    localStorage.setItem(`omnistock_customers_${currentUserId}`, JSON.stringify(customers));
+  }, [customers, currentUserId]);
 
   useEffect(() => {
-    localStorage.setItem('omnistock_returns', JSON.stringify(returns));
-  }, [returns]);
+    localStorage.setItem(`omnistock_orders_${currentUserId}`, JSON.stringify(orders));
+  }, [orders, currentUserId]);
 
   useEffect(() => {
-    localStorage.setItem('omnistock_store_settings', JSON.stringify(storeSettings));
-  }, [storeSettings]);
+    localStorage.setItem(`omnistock_returns_${currentUserId}`, JSON.stringify(returns));
+  }, [returns, currentUserId]);
+
+  useEffect(() => {
+    localStorage.setItem(`omnistock_store_settings_${currentUserId}`, JSON.stringify(storeSettings));
+  }, [storeSettings, currentUserId]);
 
   // Online / Offline listener
   useEffect(() => {
@@ -618,6 +647,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const newProd: Product = {
       ...productData,
+      userId: currentUserId,
       id: `prod-${Date.now().toString().slice(-6)}`,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -645,6 +675,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           updatedProd = {
             ...p,
             ...productData,
+            userId: p.userId || currentUserId,
             updatedAt: new Date().toISOString(),
           };
           return updatedProd;
@@ -702,6 +733,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const addCustomer = async (customerData: Omit<Customer, 'id' | 'loyaltyPoints' | 'lifetimeSpend' | 'totalOrdersCount' | 'createdAt'>): Promise<Customer> => {
     const newCust: Customer = {
       ...customerData,
+      userId: currentUserId,
       id: `cust-${Date.now().toString().slice(-6)}`,
       loyaltyPoints: 0,
       lifetimeSpend: 0,
@@ -724,7 +756,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCustomers(prev =>
       prev.map(c => {
         if (c.id === id) {
-          updated = { ...c, ...data };
+          updated = { ...c, ...data, userId: c.userId || currentUserId };
           return updated;
         }
         return c;
@@ -741,12 +773,23 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return updated;
   };
 
+  const deleteCustomer = async (id: string): Promise<boolean> => {
+    try {
+      await deleteDoc(doc(db, 'customers', id));
+    } catch (err) {
+      console.warn('Firestore customer delete notice:', err);
+    }
+    setCustomers(prev => prev.filter(c => c.id !== id));
+    return true;
+  };
+
   const getCustomerById = (id: string) => customers.find(c => c.id === id);
 
   const createOrder = async (orderData: Omit<Order, 'id' | 'invoiceNumber' | 'createdAt'>): Promise<Order> => {
     const newInvoiceNum = `INV-${new Date().getFullYear()}-${(orders.length + 101).toString().padStart(4, '0')}`;
     const newOrder: Order = {
       ...orderData,
+      userId: currentUserId,
       id: `ord-${Date.now().toString().slice(-6)}`,
       invoiceNumber: newInvoiceNum,
       createdAt: new Date().toISOString(),
@@ -941,6 +984,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const returnNumber = `RET-${new Date().getFullYear()}-${(returns.length + 1001).toString()}`;
     const newReturn: ReturnRecord = {
       ...returnData,
+      userId: currentUserId,
       id: `ret-${Date.now().toString().slice(-6)}`,
       returnNumber,
       createdAt: new Date().toISOString(),
@@ -975,10 +1019,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateStoreSettings = (newSettings: Partial<StoreSettings>) => {
-    const updated = { ...storeSettings, ...newSettings };
+    const updated = { ...storeSettings, ...newSettings, userId: currentUserId };
     setStoreSettings(updated);
     try {
-      setDoc(doc(db, 'storeSettings', 'main'), updated).catch(() => {});
+      setDoc(doc(db, 'storeSettings', currentUserId), updated).catch(() => {});
     } catch (err) {
       console.warn('Firestore settings update notice:', err);
     }
@@ -1165,6 +1209,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         checkBarcodeExists,
         addCustomer,
         updateCustomer,
+        deleteCustomer,
         getCustomerById,
         createOrder,
         updateOrder,

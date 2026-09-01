@@ -15,6 +15,7 @@ export interface User {
 
 export interface Product {
   id: string;
+  userId?: string;
   name: string;
   category: string;
   barcode: string;
@@ -45,6 +46,7 @@ export type PaymentMethod = 'Cash' | 'Card' | 'Bank Transfer' | 'Mobile Banking'
 
 export interface Order {
   id: string;
+  userId?: string;
   invoiceNumber: string;
   customerId: string;
   customerName: string;
@@ -82,6 +84,7 @@ export type ProductReturn = ReturnRecord;
 
 export interface ReturnRecord {
   id: string;
+  userId?: string;
   returnNumber: string;
   orderId?: string;
   invoiceNumber?: string;
@@ -102,6 +105,7 @@ export interface ReturnRecord {
 
 export interface Customer {
   id: string;
+  userId?: string;
   name: string;
   phone: string;
   email?: string;
@@ -114,6 +118,7 @@ export interface Customer {
 }
 
 export interface StoreSettings {
+  userId?: string;
   storeName: string;
   contactNumber: string;
   email: string;

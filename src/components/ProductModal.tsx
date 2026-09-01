@@ -556,9 +556,16 @@ export const ProductModal: React.FC<ProductModalProps> = ({ product, isOpen, onC
             <button
               type="submit"
               disabled={isSubmitting || Boolean(barcodeError)}
-              className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-lg disabled:opacity-50"
+              className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              {product ? 'Update Stock Item' : 'Save New Product to Stock'}
+              {isSubmitting ? (
+                <>
+                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <span>{product ? 'Update Stock Item' : 'Save New Product to Stock'}</span>
+              )}
             </button>
           </div>
         </form>

@@ -15,7 +15,9 @@ import {
   PlusCircle,
   Sparkles,
   MapPin,
-  X
+  X,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 
 interface CustomersViewProps {
@@ -29,9 +31,11 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
   onCreateOrderForCustomer,
   currentLang,
 }) => {
-  const { customers, addCustomer, storeSettings } = useData();
+  const { customers, addCustomer, deleteCustomer, storeSettings } = useData();
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // New customer form state
   const [newName, setNewName] = useState('');
@@ -76,6 +80,19 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
       alert(err.message || 'Failed to add customer');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!customerToDelete) return;
+    setIsDeleting(true);
+    try {
+      await deleteCustomer(customerToDelete.id);
+      setCustomerToDelete(null);
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete customer');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -170,10 +187,81 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
               >
                 <PlusCircle className="w-4 h-4" />
               </button>
+              <button
+                onClick={() => setCustomerToDelete(cust)}
+                title="Delete customer permanently"
+                className="p-2 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 rounded-xl transition"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
             </div>
           </div>
         ))}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {customerToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/75 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden p-6 space-y-4">
+            <div className="flex items-center gap-3 text-rose-600">
+              <div className="p-3 bg-rose-100 dark:bg-rose-950/60 rounded-2xl">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900 dark:text-white text-base">
+                  Delete Customer?
+                </h3>
+                <p className="text-xs text-slate-500">
+                  This action will permanently delete this customer from your store.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 text-xs space-y-1">
+              <div className="font-bold text-slate-900 dark:text-white">
+                {customerToDelete.name}
+              </div>
+              <div className="text-slate-500">
+                Phone: {customerToDelete.phone}
+              </div>
+              {customerToDelete.email && (
+                <div className="text-slate-500">
+                  Email: {customerToDelete.email}
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setCustomerToDelete(null)}
+                className="flex-1 py-2.5 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-bold text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleDeleteConfirm}
+                className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isDeleting ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>Confirm Delete</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add Customer Modal */}
       {isAddModalOpen && (

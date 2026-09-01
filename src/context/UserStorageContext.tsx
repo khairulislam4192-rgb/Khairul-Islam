@@ -28,61 +28,13 @@ interface UserStorageContextType {
   };
 }
 
-const INITIAL_DEMO_FILES: UserFile[] = [
-  {
-    id: 'file-demo-01',
-    userId: 'ADM-8821',
-    userName: 'Khairul Islam',
-    userEmail: 'khairulislam2980@gmail.com',
-    name: 'Q1 Store Tax Compliance & Financial Audit',
-    fileName: 'Q1_Financial_Audit_2025.pdf',
-    fileSize: 245760, // 240 KB
-    fileType: 'application/pdf',
-    category: 'document',
-    downloadUrl: 'data:application/pdf;base64,JVBERi0xLjQKJcOkw7zDtsOfCjIgMCBvYmoKPDwvTGVuZ3RoIDM=',
-    createdAt: '2025-02-15T09:30:00Z',
-    notes: 'Approved company quarterly tax breakdown with chartered accountant stamp.',
-    tags: ['tax', 'audit', 'compliance', '2025'],
-  },
-  {
-    id: 'file-demo-02',
-    userId: 'ADM-8821',
-    userName: 'Khairul Islam',
-    userEmail: 'khairulislam2980@gmail.com',
-    name: 'Official Store Logo Vector Asset',
-    fileName: 'OmniStock_Brand_Badge.png',
-    fileSize: 524288, // 512 KB
-    fileType: 'image/png',
-    category: 'image',
-    downloadUrl: 'https://images.unsplash.com/photo-1542744094-3a31f272c490?w=600&auto=format&fit=crop&q=80',
-    createdAt: '2025-01-20T14:15:00Z',
-    notes: 'High-resolution transparency asset used for digital signatures & receipts.',
-    tags: ['branding', 'logo', 'receipts'],
-  },
-  {
-    id: 'file-demo-03',
-    userId: 'ADM-8821',
-    userName: 'Khairul Islam',
-    userEmail: 'khairulislam2980@gmail.com',
-    name: 'Vendor Supply Agreement - Italian Suede Footwear',
-    fileName: 'Supplier_Agreement_Milano_2025.pdf',
-    fileSize: 419430, // 410 KB
-    fileType: 'application/pdf',
-    category: 'document',
-    downloadUrl: 'data:application/pdf;base64,JVBERi0xLjQKJcOkw7zDtsOfCjIgMCBvYmoKPDwvTGVuZ3RoIDM=',
-    createdAt: '2025-02-01T11:00:00Z',
-    notes: 'Exclusivity wholesale contract with Italian shoe manufacturers.',
-    tags: ['vendor', 'contract', 'footwear'],
-  },
-];
-
 const UserStorageContext = createContext<UserStorageContextType | undefined>(undefined);
 
 export const UserStorageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser } = useAuth();
   const [files, setFiles] = useState<UserFile[]>(() => {
     const saved = localStorage.getItem(`omnistock_files_${currentUser?.id || 'guest'}`);
-    return saved ? JSON.parse(saved) : (currentUser?.id === 'ADM-8821' ? INITIAL_DEMO_FILES : []);
+    return saved ? JSON.parse(saved) : [];
   });
   const [isLoading, setIsLoading] = useState(false);
 
@@ -104,9 +56,8 @@ export const UserStorageProvider: React.FC<{ children: React.ReactNode }> = ({ c
       } catch {
         // ignore
       }
-    } else if (currentUserId === 'ADM-8821') {
-      setFiles(INITIAL_DEMO_FILES);
-      localStorage.setItem(localKey, JSON.stringify(INITIAL_DEMO_FILES));
+    } else {
+      setFiles([]);
     }
 
     // Connect to Firestore collection query
@@ -128,6 +79,9 @@ export const UserStorageProvider: React.FC<{ children: React.ReactNode }> = ({ c
             remoteFiles.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
             setFiles(remoteFiles);
             localStorage.setItem(localKey, JSON.stringify(remoteFiles));
+          } else {
+            setFiles([]);
+            localStorage.setItem(localKey, JSON.stringify([]));
           }
         },
         (err) => {

@@ -15,7 +15,8 @@ import {
   Clock,
   Sparkles,
   ChevronRight,
-  ArrowLeft
+  ArrowLeft,
+  Trash2,
 } from 'lucide-react';
 
 interface CustomerProfile360ModalProps {
@@ -33,9 +34,25 @@ export const CustomerProfile360Modal: React.FC<CustomerProfile360ModalProps> = (
   onPrintOrder,
   onCreateOrderForCustomer,
 }) => {
-  const { orders, storeSettings, updateCustomer } = useData();
+  const { orders, storeSettings, updateCustomer, deleteCustomer } = useData();
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [notes, setNotes] = useState(customer?.notes || '');
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteCustomer = async () => {
+    if (!customer) return;
+    if (window.confirm(`Are you sure you want to permanently delete customer "${customer.name}"?`)) {
+      setIsDeleting(true);
+      try {
+        await deleteCustomer(customer.id);
+        onClose();
+      } catch (err: any) {
+        alert(err.message || 'Failed to delete customer');
+      } finally {
+        setIsDeleting(false);
+      }
+    }
+  };
 
   // Escape key listener to close modal
   useEffect(() => {
@@ -122,15 +139,26 @@ export const CustomerProfile360Modal: React.FC<CustomerProfile360ModalProps> = (
               </div>
             </div>
 
-            <button
-              onClick={() => {
-                onCreateOrderForCustomer(customer);
-                onClose();
-              }}
-              className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl shadow-lg transition flex items-center gap-2"
-            >
-              <PlusCircle className="w-4 h-4" /> New Invoice / POS
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleDeleteCustomer}
+                disabled={isDeleting}
+                title="Delete customer permanently"
+                className="p-2.5 bg-rose-600/80 hover:bg-rose-600 text-white rounded-xl shadow-lg transition flex items-center gap-1.5 text-xs font-semibold disabled:opacity-50"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Delete</span>
+              </button>
+              <button
+                onClick={() => {
+                  onCreateOrderForCustomer(customer);
+                  onClose();
+                }}
+                className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl shadow-lg transition flex items-center gap-2"
+              >
+                <PlusCircle className="w-4 h-4" /> New Invoice / POS
+              </button>
+            </div>
           </div>
         </div>
 

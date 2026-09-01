@@ -582,19 +582,37 @@ export const CreateOrderModal: React.FC<CreateOrderModalProps> = ({
                 type="button"
                 disabled={isSubmitting || cartItems.length === 0}
                 onClick={() => handleSaveOrder(false)}
-                className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-2xl text-xs font-bold transition flex items-center justify-center gap-2 shadow disabled:opacity-50"
+                className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-2xl text-xs font-bold transition flex items-center justify-center gap-2 shadow disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <CheckCircle className="w-4 h-4 text-emerald-400" />
-                {editOrder ? 'Update Invoice' : 'Save Order Only'}
+                {isSubmitting ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Processing...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4 text-emerald-400" />
+                    <span>{editOrder ? 'Update Invoice' : 'Save Order Only'}</span>
+                  </>
+                )}
               </button>
               <button
                 type="button"
                 disabled={isSubmitting || cartItems.length === 0}
                 onClick={() => handleSaveOrder(true)}
-                className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-lg disabled:opacity-50"
+                className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Printer className="w-4 h-4" />
-                {editOrder ? 'Update & Print' : 'Save & Print Command'}
+                {isSubmitting ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Processing...</span>
+                  </>
+                ) : (
+                  <>
+                    <Printer className="w-4 h-4" />
+                    <span>{editOrder ? 'Update & Print' : 'Save & Print Command'}</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
